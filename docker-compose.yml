@@ -1,0 +1,53 @@
+version: '3'
+services:
+  # note: nginx proxy must always be running - it is the interface through which all calls are handled, (it is the router) hence restart: always
+  nginx:
+    restart: always
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile.dev
+    ports:
+      - '3050:80'
+  postgres:
+    image: postgres:latest
+  redis:
+    image: redis:latest
+  api:
+    depends_on:
+      - postgres
+      - redis
+    build: 
+      dockerfile: Dockerfile.dev
+      context: ./server
+    # Leave /app/node_modules as is in the container - this is a bookmark that ensures we do not copy app/node_modules on localhost to 
+    # container
+    volumes:
+      - /app/node_modules
+      - ./server:/app
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PGUSER=postgres
+      - PGHOST=postgres
+      - PGDATABASE=postgres
+      - PGPASSWORD=postgres_password
+      - PGPORT=5432
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.dev
+    volumes:
+      - /app/node_modules
+      - ./client:/app
+  worker:
+    depends_on:
+      - redis
+    build:
+      context: ./worker
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./worker:/app
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+  
